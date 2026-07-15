@@ -15,6 +15,14 @@ class AppServiceProvider extends ServiceProvider
             \App\Interfaces\AuthRepositoryInterface::class,
             \App\Repositories\AuthRepository::class
         );
+        $this->app->bind(
+            \App\Interfaces\VenueRepositoryInterface::class,
+            \App\Repositories\VenueRepository::class
+        );
+        $this->app->bind(
+            \App\Interfaces\CourtRepositoryInterface::class,
+            \App\Repositories\CourtRepository::class
+        );
     }
 
     /**
