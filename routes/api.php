@@ -1,13 +1,14 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\VenueController;
 use App\Http\Controllers\Api\CourtController;
+use App\Http\Controllers\Api\VenueController;
 use Illuminate\Support\Facades\Route;
 
 // Rute Publik (Tanpa Otentikasi)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/courts/{id}/availability', [CourtController::class, 'availability']);
 
 // Rute Terproteksi (Memerlukan Token Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
@@ -30,7 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/courts/{id}', [CourtController::class, 'show']);
         Route::put('/courts/{id}', [CourtController::class, 'update']);
         Route::delete('/courts/{id}', [CourtController::class, 'destroy']);
-        
+
         // Court Images
         Route::post('/courts/{id}/images', [CourtController::class, 'uploadImage']);
         Route::delete('/courts/images/{image_id}', [CourtController::class, 'deleteImage']);

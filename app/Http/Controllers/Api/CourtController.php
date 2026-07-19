@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Helpers\ResponseHelper;
-use App\Interfaces\CourtRepositoryInterface;
-use App\Interfaces\VenueRepositoryInterface;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\CourtStoreRequest;
 use App\Http\Requests\CourtUpdateRequest;
-use App\Http\Resources\CourtResource;
 use App\Http\Resources\CourtImageResource;
+use App\Http\Resources\CourtResource;
+use App\Interfaces\CourtRepositoryInterface;
+use App\Interfaces\VenueRepositoryInterface;
 use App\Models\CourtImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -17,13 +17,11 @@ use Illuminate\Support\Facades\Gate;
 class CourtController extends Controller
 {
     protected CourtRepositoryInterface $courtRepository;
+
     protected VenueRepositoryInterface $venueRepository;
 
     /**
      * CourtController constructor.
-     *
-     * @param CourtRepositoryInterface $courtRepository
-     * @param VenueRepositoryInterface $venueRepository
      */
     public function __construct(CourtRepositoryInterface $courtRepository, VenueRepositoryInterface $venueRepository)
     {
@@ -38,7 +36,7 @@ class CourtController extends Controller
     {
         $venue = $this->venueRepository->find($venueId);
 
-        if (!$venue) {
+        if (! $venue) {
             return ResponseHelper::jsonResponse(
                 false,
                 'Venue tidak ditemukan.',
@@ -65,9 +63,9 @@ class CourtController extends Controller
     public function store(CourtStoreRequest $request)
     {
         $validated = $request->validated();
-        
+
         $venue = $this->venueRepository->find($validated['venue_id']);
-        if (!$venue) {
+        if (! $venue) {
             return ResponseHelper::jsonResponse(
                 false,
                 'Venue tidak ditemukan.',
@@ -103,7 +101,7 @@ class CourtController extends Controller
     {
         $court = $this->courtRepository->find($id);
 
-        if (!$court) {
+        if (! $court) {
             return ResponseHelper::jsonResponse(
                 false,
                 'Lapangan tidak ditemukan.',
@@ -123,13 +121,43 @@ class CourtController extends Controller
     }
 
     /**
+     * GET /api/courts/{id}/availability
+     */
+    public function availability(Request $request, $id)
+    {
+        $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $court = $this->courtRepository->find($id);
+
+        if (! $court) {
+            return ResponseHelper::jsonResponse(
+                false,
+                'Lapangan tidak ditemukan.',
+                null,
+                404
+            );
+        }
+
+        $availability = $this->courtRepository->getAvailability($id, $request->query('date'));
+
+        return ResponseHelper::jsonResponse(
+            true,
+            'Ketersediaan lapangan berhasil diambil.',
+            $availability,
+            200
+        );
+    }
+
+    /**
      * PUT /api/courts/{id}
      */
     public function update(CourtUpdateRequest $request, $id)
     {
         $court = $this->courtRepository->find($id);
 
-        if (!$court) {
+        if (! $court) {
             return ResponseHelper::jsonResponse(
                 false,
                 'Lapangan tidak ditemukan.',
@@ -157,7 +185,7 @@ class CourtController extends Controller
     {
         $court = $this->courtRepository->find($id);
 
-        if (!$court) {
+        if (! $court) {
             return ResponseHelper::jsonResponse(
                 false,
                 'Lapangan tidak ditemukan.',
@@ -190,7 +218,7 @@ class CourtController extends Controller
 
         $court = $this->courtRepository->find($id);
 
-        if (!$court) {
+        if (! $court) {
             return ResponseHelper::jsonResponse(
                 false,
                 'Lapangan tidak ditemukan.',
@@ -223,7 +251,7 @@ class CourtController extends Controller
     {
         $image = CourtImage::with('court.venue')->find($imageId);
 
-        if (!$image) {
+        if (! $image) {
             return ResponseHelper::jsonResponse(
                 false,
                 'Foto lapangan tidak ditemukan.',

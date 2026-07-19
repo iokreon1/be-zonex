@@ -2,20 +2,19 @@
 
 namespace App\Repositories;
 
+use App\Interfaces\CourtRepositoryInterface;
+use App\Models\Booking;
 use App\Models\Court;
 use App\Models\CourtImage;
-use App\Interfaces\CourtRepositoryInterface;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class CourtRepository implements CourtRepositoryInterface
 {
     /**
      * Get all courts for a venue.
-     *
-     * @param string $venueId
-     * @return Collection
      */
     public function allForVenue(string $venueId): Collection
     {
@@ -24,9 +23,6 @@ class CourtRepository implements CourtRepositoryInterface
 
     /**
      * Find a court by ID.
-     *
-     * @param string $id
-     * @return Court|null
      */
     public function find(string $id): ?Court
     {
@@ -35,9 +31,6 @@ class CourtRepository implements CourtRepositoryInterface
 
     /**
      * Create a new court.
-     *
-     * @param array $data
-     * @return Court
      */
     public function create(array $data): Court
     {
@@ -46,23 +39,17 @@ class CourtRepository implements CourtRepositoryInterface
 
     /**
      * Update an existing court.
-     *
-     * @param string $id
-     * @param array $data
-     * @return Court
      */
     public function update(string $id, array $data): Court
     {
         $court = Court::findOrFail($id);
         $court->update($data);
+
         return $court;
     }
 
     /**
      * Delete a court and its images.
-     *
-     * @param string $id
-     * @return bool
      */
     public function delete(string $id): bool
     {
@@ -71,6 +58,7 @@ class CourtRepository implements CourtRepositoryInterface
             foreach ($court->images as $image) {
                 Storage::disk('public')->delete($image->image_path);
             }
+
             return $court->delete();
         });
     }
@@ -78,11 +66,7 @@ class CourtRepository implements CourtRepositoryInterface
     /**
      * Upload an image for a court.
      *
-     * @param string $courtId
-     * @param mixed $file
-     * @param bool $isPrimary
-     * @param string $folderName
-     * @return CourtImage
+     * @param  mixed  $file
      */
     public function uploadImage(string $courtId, $file, bool $isPrimary, string $folderName): CourtImage
     {
@@ -98,23 +82,96 @@ class CourtRepository implements CourtRepositoryInterface
             return CourtImage::create([
                 'court_id' => $courtId,
                 'image_path' => $path,
-                'is_primary' => $isPrimary
+                'is_primary' => $isPrimary,
             ]);
         });
     }
 
     /**
      * Delete a specific court image.
-     *
-     * @param string $imageId
-     * @return bool
      */
     public function deleteImage(string $imageId): bool
     {
         return DB::transaction(function () use ($imageId) {
             $image = CourtImage::findOrFail($imageId);
             Storage::disk('public')->delete($image->image_path);
+
             return $image->delete();
         });
+    }
+
+    /**
+     * Get court availability for a specific date.
+     */
+    public function getAvailability(string $courtId, string $date): array
+    {
+        $court = Court::with(['venue.operatingHours'])->findOrFail($courtId);
+        $dayOfWeek = Carbon::parse($date)->dayOfWeek;
+
+        $operatingHour = $court->venue->operatingHours->firstWhere('day_of_week', $dayOfWeek);
+
+        if (! $operatingHour || $operatingHour->is_closed) {
+            return [
+                'is_closed' => true,
+                'open_time' => null,
+                'close_time' => null,
+                'slots' => [],
+            ];
+        }
+
+        $startTime = Carbon::parse($date.' '.$operatingHour->open_time);
+        $endTime = Carbon::parse($date.' '.$operatingHour->close_time);
+
+        if ($endTime->lessThanOrEqualTo($startTime)) {
+            $endTime->addDay();
+        }
+
+        // Fetch active bookings for this court and date
+        $activeBookings = Booking::where('court_id', $courtId)
+            ->where('booking_date', $date)
+            ->where(function ($query) {
+                $query->whereIn('payment_status', ['paid'])
+                    ->orWhereIn('status', ['confirmed', 'completed'])
+                    ->orWhere(function ($q) {
+                        $q->where('status', 'pending')
+                            ->where('payment_status', 'unpaid')
+                            ->where('expires_at', '>', now());
+                    });
+            })
+            ->get();
+
+        $slots = [];
+        $current = $startTime->copy();
+
+        while ($current->lessThan($endTime)) {
+            $slotStart = $current->copy();
+            $slotEnd = $current->copy()->addHour();
+
+            if ($slotEnd->greaterThan($endTime)) {
+                break;
+            }
+
+            $startStr = $slotStart->format('H:i:s');
+            $endStr = $slotEnd->format('H:i:s');
+
+            $isBooked = $activeBookings->contains(function ($booking) use ($startStr, $endStr) {
+                return $startStr < $booking->end_time && $endStr > $booking->start_time;
+            });
+
+            $slots[] = [
+                'start_time' => $slotStart->format('H:i'),
+                'end_time' => $slotEnd->format('H:i'),
+                'is_booked' => $isBooked,
+            ];
+
+            $current->addHour();
+        }
+
+        return [
+            'is_closed' => false,
+            'open_time' => Carbon::parse($operatingHour->open_time)->format('H:i'),
+            'close_time' => Carbon::parse($operatingHour->close_time)->format('H:i'),
+            'slots' => $slots,
+        ];
     }
 }
