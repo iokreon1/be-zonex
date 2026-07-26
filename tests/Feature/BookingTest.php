@@ -26,6 +26,8 @@ class BookingTest extends TestCase
 
     protected Court $court;
 
+    protected string $bookingDate;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -84,6 +86,8 @@ class BookingTest extends TestCase
             'close_time' => '22:00:00',
             'is_closed' => false,
         ]);
+
+        $this->bookingDate = Carbon::parse('next wednesday')->format('Y-m-d');
     }
 
     /**
@@ -93,7 +97,7 @@ class BookingTest extends TestCase
     {
         $response = $this->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '09:00',
             'end_time' => '11:00',
         ]);
@@ -108,7 +112,7 @@ class BookingTest extends TestCase
     {
         $response = $this->actingAs($this->owner, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '09:00',
             'end_time' => '11:00',
         ]);
@@ -123,7 +127,7 @@ class BookingTest extends TestCase
      */
     public function test_booking_success()
     {
-        $bookingDate = '2026-07-22';
+        $bookingDate = $this->bookingDate;
         $startTime = '09:00';
         $endTime = '11:00'; // 2 hours
 
@@ -161,7 +165,8 @@ class BookingTest extends TestCase
         $data = $response->json('data');
 
         // Assert code format ZX-YYYYMMDD-RANDOMSTRING
-        $this->assertMatchesRegularExpression('/^ZX-20260722-[A-Z0-9]{6}$/', $data['booking_code']);
+        $dateFormatted = Carbon::parse($this->bookingDate)->format('Ymd');
+        $this->assertMatchesRegularExpression('/^ZX-'.$dateFormatted.'-[A-Z0-9]{6}$/', $data['booking_code']);
 
         // Assert price calculation (2 hours * 50,000)
         $this->assertEquals(100000.00, $data['total_price']);
@@ -247,7 +252,7 @@ class BookingTest extends TestCase
     {
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '09:30', // not whole hour
             'end_time' => '10:30',
         ]);
@@ -263,7 +268,7 @@ class BookingTest extends TestCase
     {
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '07:00', // opens at 08:00
             'end_time' => '09:00',
         ]);
@@ -277,10 +282,11 @@ class BookingTest extends TestCase
      */
     public function test_booking_when_venue_closed()
     {
-        // 2026-07-23 is Thursday (dayOfWeek = 4), which operatingHour is closed/missing
+        $closedDate = Carbon::parse($this->bookingDate)->addDay()->format('Y-m-d');
+        // Thursday (dayOfWeek = 4), which operatingHour is closed/missing
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-23',
+            'booking_date' => $closedDate,
             'start_time' => '09:00',
             'end_time' => '10:00',
         ]);
@@ -300,7 +306,7 @@ class BookingTest extends TestCase
             'venue_id' => $this->venue->id,
             'court_id' => $this->court->id,
             'user_id' => $this->customer2->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '10:00:00',
             'end_time' => '12:00:00',
             'total_price' => 100000.00,
@@ -311,7 +317,7 @@ class BookingTest extends TestCase
         // 2. Try to book overlapping 09:00 - 11:00 (overlaps at 10:00-11:00)
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '09:00',
             'end_time' => '11:00',
         ]);
@@ -322,7 +328,7 @@ class BookingTest extends TestCase
         // 3. Try to book overlapping 11:00 - 13:00 (overlaps at 11:00-12:00)
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '11:00',
             'end_time' => '13:00',
         ]);
@@ -333,7 +339,7 @@ class BookingTest extends TestCase
         // 4. Try to book non-overlapping 12:00 - 14:00 (should succeed)
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '12:00',
             'end_time' => '14:00',
         ]);
@@ -352,7 +358,7 @@ class BookingTest extends TestCase
             'venue_id' => $this->venue->id,
             'court_id' => $this->court->id,
             'user_id' => $this->customer2->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '10:00:00',
             'end_time' => '12:00:00',
             'total_price' => 100000.00,
@@ -366,7 +372,7 @@ class BookingTest extends TestCase
             'venue_id' => $this->venue->id,
             'court_id' => $this->court->id,
             'user_id' => $this->customer2->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '12:00:00',
             'end_time' => '14:00:00',
             'total_price' => 100000.00,
@@ -378,7 +384,7 @@ class BookingTest extends TestCase
         // 3. Book 10:00 - 12:00 (should succeed since previous was cancelled)
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '10:00',
             'end_time' => '12:00',
         ]);
@@ -387,7 +393,7 @@ class BookingTest extends TestCase
         // 4. Book 12:00 - 14:00 (should succeed since previous was expired)
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '12:00',
             'end_time' => '14:00',
         ]);
@@ -403,7 +409,7 @@ class BookingTest extends TestCase
 
         $response = $this->actingAs($this->customer, 'sanctum')->postJson('/api/bookings', [
             'court_id' => $this->court->id,
-            'booking_date' => '2026-07-22',
+            'booking_date' => $this->bookingDate,
             'start_time' => '14:00',
             'end_time' => '16:00',
         ]);
