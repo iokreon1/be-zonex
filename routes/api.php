@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\VenueController;
 use Illuminate\Support\Facades\Route;
@@ -35,5 +36,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // Court Images
         Route::post('/courts/{id}/images', [CourtController::class, 'uploadImage']);
         Route::delete('/courts/images/{image_id}', [CourtController::class, 'deleteImage']);
+    });
+
+    // Rute Khusus dengan Peran customer
+    Route::middleware('role:customer')->group(function () {
+        Route::post('/bookings', [BookingController::class, 'store']);
     });
 });

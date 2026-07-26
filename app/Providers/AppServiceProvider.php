@@ -2,6 +2,14 @@
 
 namespace App\Providers;
 
+use App\Interfaces\AuthRepositoryInterface;
+use App\Interfaces\BookingRepositoryInterface;
+use App\Interfaces\CourtRepositoryInterface;
+use App\Interfaces\VenueRepositoryInterface;
+use App\Repositories\AuthRepository;
+use App\Repositories\BookingRepository;
+use App\Repositories\CourtRepository;
+use App\Repositories\VenueRepository;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -12,16 +20,20 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(
-            \App\Interfaces\AuthRepositoryInterface::class,
-            \App\Repositories\AuthRepository::class
+            AuthRepositoryInterface::class,
+            AuthRepository::class
         );
         $this->app->bind(
-            \App\Interfaces\VenueRepositoryInterface::class,
-            \App\Repositories\VenueRepository::class
+            VenueRepositoryInterface::class,
+            VenueRepository::class
         );
         $this->app->bind(
-            \App\Interfaces\CourtRepositoryInterface::class,
-            \App\Repositories\CourtRepository::class
+            CourtRepositoryInterface::class,
+            CourtRepository::class
+        );
+        $this->app->bind(
+            BookingRepositoryInterface::class,
+            BookingRepository::class
         );
     }
 
